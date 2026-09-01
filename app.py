@@ -2,8 +2,7 @@ import streamlit as st
 from docx import Document
 import io
 import pypdf
-from google import genai
-from google.genai import types
+import google.generativeai as genai
 
 # Configuration de la page
 st.set_page_config(
@@ -18,7 +17,7 @@ st.markdown("Dépose tes pièces de DCE. Gemini analyse les documents, traite le
 st.divider()
 
 # Saisie de la clé API Gemini dans la barre latérale
-api_key = st.sidebar.text_input("Clé API Gemini", type="password", help="Entre ta clé API Google GenAI.")
+api_key = st.sidebar.text_input("Clé API Gemini", type="password", help="Entre ta clé API Google AI Studio.")
 
 # Zone de dépôt des pièces du DCE
 dce_files = st.file_uploader(
@@ -55,8 +54,8 @@ if st.button("🚀 Lancer l'analyse du DCE et générer la Fiche Word", type="pr
 
         with st.spinner("🤖 Étape 2/3 : Analyse approfondie par Gemini des 67 points de contrôle..."):
             try:
-                # Initialisation du client Google GenAI
-                client = genai.Client(api_key=api_key)
+                # Configuration de l'API avec la clé utilisateur
+                genai.configure(api_key=api_key)
                 
                 prompt_systeme = (
                     "Tu es un expert en réponse aux appels d'offres dans le domaine de la maintenance et de la performance énergétique "
@@ -64,14 +63,13 @@ if st.button("🚀 Lancer l'analyse du DCE et générer la Fiche Word", type="pr
                     "de revue d'offre, en indiquant pour chaque point l'information trouvée ainsi que le document et la page de référence."
                 )
 
-                # Appel à Gemini avec le modèle stable gemini-1.5-flash
-                response = client.models.generate_content(
-                    model='gemini-1.5-flash',
-                    contents=[
-                        prompt_systeme,
-                        f"Voici le contenu complet du DCE :\n{texte_dce_total}"
-                    ]
-                )
+                # Utilisation du modèle standard de production
+                model = genai.GenerativeModel('gemini-1.5-flash')
+                
+                response = model.generate_content([
+                    prompt_systeme,
+                    f"Voici le contenu complet du DCE :\n{texte_dce_total}"
+                ])
                 
                 analyse_resultat = response.text
 
