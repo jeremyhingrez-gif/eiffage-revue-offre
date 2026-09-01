@@ -2,7 +2,8 @@ import streamlit as st
 from docx import Document
 import io
 import pypdf
-import openai
+from google import genai
+from google.genai import types
 
 # Configuration de la page
 st.set_page_config(
@@ -11,13 +12,13 @@ st.set_page_config(
     layout="wide",
 )
 
-st.title("🏗️ Assistant IA - Analyse de DCE & Revue d'Offre")
-st.markdown("Dépose tes pièces de DCE. L'intelligence artificielle analyse les documents, traite les 67 points de contrôle et te génère le fichier Word entièrement complété.")
+st.title("🏗️ Assistant IA (Gemini) - Analyse de DCE & Revue d'Offre")
+st.markdown("Dépose tes pièces de DCE. Gemini analyse les documents, traite les 67 points de contrôle et te génère le fichier Word entièrement complété.")
 
 st.divider()
 
-# Clé API (à configurer via Streamlit Secrets ou à saisir ici)
-api_key = st.sidebar.text_input("Clé API OpenAI / IA", type="password", help="Entre ta clé API pour autoriser l'analyse intelligente des documents.")
+# Saisie de la clé API Gemini dans la barre latérale
+api_key = st.sidebar.text_input("Clé API Gemini", type="password", help="Entre ta clé API Google GenAI.")
 
 # Zone de dépôt des pièces du DCE
 dce_files = st.file_uploader(
@@ -33,7 +34,7 @@ if st.button("🚀 Lancer l'analyse du DCE et générer la Fiche Word", type="pr
     if not dce_files:
         st.warning("⚠️ Veuillez déposer au moins une pièce du DCE.")
     elif not api_key:
-        st.error("⚠️ Veuillez renseigner votre clé API dans la barre latérale pour permettre à l'IA d'analyser les textes.")
+        st.error("⚠️ Veuillez renseigner votre clé API Gemini dans la barre latérale.")
     else:
         with st.spinner("🔄 Étape 1/3 : Extraction du texte des pièces du DCE..."):
             try:
@@ -52,10 +53,10 @@ if st.button("🚀 Lancer l'analyse du DCE et générer la Fiche Word", type="pr
                 st.error(f"Erreur lors de la lecture des fichiers : {e}")
                 st.stop()
 
-        with st.spinner("🤖 Étape 2/3 : Analyse approfondie par l'IA des 67 points de contrôle..."):
+        with st.spinner("🤖 Étape 2/3 : Analyse approfondie par Gemini des 67 points de contrôle..."):
             try:
-                # Configuration du client OpenAI
-                client = openai.OpenAI(api_key=api_key)
+                # Initialisation du client Google GenAI
+                client = genai.Client(api_key=api_key)
                 
                 prompt_systeme = (
                     "Tu es un expert en réponse aux appels d'offres dans le domaine de la maintenance et de la performance énergétique "
@@ -63,19 +64,19 @@ if st.button("🚀 Lancer l'analyse du DCE et générer la Fiche Word", type="pr
                     "de revue d'offre, en indiquant pour chaque point l'information trouvée ainsi que le document et la page de référence."
                 )
 
-                response = client.chat.completions.create(
-                    model="gpt-4o",  # Ou gpt-4 selon ton accès
-                    messages=[
-                        {"role": "system", "content": prompt_systeme},
-                        {"role": "user", "content": f"Voici le contenu du DCE :\n{texte_dce_total[:120000]}\n\nAnalyse ce DCE et remplis la grille des 67 points sous forme de tableau structuré."}
-                    ],
-                    temperature=0.1
+                # Appel à Gemini (modèle gemini-2.5-flash ou gemini-1.5-pro)
+                response = client.models.generate_content(
+                    model='gemini-2.5-flash',
+                    contents=[
+                        prompt_systeme,
+                        f"Voici le contenu complet du DCE :\n{texte_dce_total}"
+                    ]
                 )
                 
-                analyse_resultat = response.choices[0].message.content
+                analyse_resultat = response.text
 
             except Exception as e:
-                st.error(f"Erreur lors de l'appel à l'IA : {e}")
+                st.error(f"Erreur lors de l'appel à l'API Gemini : {e}")
                 st.stop()
 
         with st.spinner("📝 Étape 3/3 : Création et remplissage du document Word..."):
@@ -83,7 +84,7 @@ if st.button("🚀 Lancer l'analyse du DCE et générer la Fiche Word", type="pr
                 # Création du document Word
                 doc = Document()
                 doc.add_heading("FICHE DE REVUE D’OFFRE - EXPLOITATION MAINTENANCE", level=1)
-                doc.add_paragraph("Analyse automatisée des pièces du DCE - Eiffage Énergie Systèmes.")
+                doc.add_paragraph("Analyse automatisée des pièces du DCE par Gemini - Eiffage Énergie Systèmes.")
                 
                 doc.add_heading("Synthèse de l'analyse des 67 points", level=2)
                 doc.add_paragraph(analyse_resultat)
@@ -93,12 +94,12 @@ if st.button("🚀 Lancer l'analyse du DCE et générer la Fiche Word", type="pr
                 doc.save(output_io)
                 output_io.seek(0)
 
-                st.success("✅ Analyse terminée et Fiche Word générée avec succès !")
+                st.success("✅ Analyse terminée et Fiche Word complétée avec succès !")
                 
                 st.download_button(
                     label="📥 Télécharger la Fiche de Revue d'Offre Word complétée (.docx)",
                     data=output_io,
-                    file_name="Fiche_Revue_Offre_Completee.docx",
+                    file_name="Fiche_Revue_Offre_Gemini.docx",
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                     use_container_width=True
                 )
