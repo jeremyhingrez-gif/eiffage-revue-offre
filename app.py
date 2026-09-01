@@ -64,9 +64,9 @@ if st.button("🚀 Lancer l'analyse du DCE et générer la Fiche Word", type="pr
                     "de revue d'offre, en indiquant pour chaque point l'information trouvée ainsi que le document et la page de référence."
                 )
 
-                # Appel à Gemini (modèle gemini-2.5-flash ou gemini-1.5-pro)
+                # Appel à Gemini avec le modèle stable gemini-1.5-flash
                 response = client.models.generate_content(
-                    model='gemini-2.5-flash',
+                    model='gemini-1.5-flash',
                     contents=[
                         prompt_systeme,
                         f"Voici le contenu complet du DCE :\n{texte_dce_total}"
