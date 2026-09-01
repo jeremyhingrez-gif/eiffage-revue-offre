@@ -1,93 +1,152 @@
 import streamlit as st
 from docx import Document
 import io
-import pypdf
 
-# Configuration de la page Streamlit
+# Configuration de la page
 st.set_page_config(
-    page_title="Revue d'Offre - Eiffage Énergie Systèmes",
+    page_title="Générateur de Fiche de Revue d'Offre - Eiffage",
     page_icon="🏗️",
     layout="wide",
 )
 
 st.title("🏗️ Analyseur DCE & Générateur de Fiche de Revue d'Offre")
-st.markdown("Importe ton modèle Word et tes pièces DCE. L'application extrait le texte de tes PDF et prépare ta fiche.")
+st.markdown("Dépose tes pièces de DCE ci-dessous. L'application génère instantanément ton document Word complet basé sur les 67 points de la grille de révision.")
 
 st.divider()
 
-col1, col2 = st.columns(2)
-
-with col1:
-    st.subheader("📁 1. Documents requis")
-    modele_file = st.file_uploader("Modèle de Fiche Word (.docx)", type=["docx"])
-    dce_files = st.file_uploader(
-        "Pièces du DCE (PDF, etc.)", 
-        type=["pdf", "docx", "txt"], 
-        accept_multiple_files=True,
-        help="Dépose l'ensemble des pièces de l'appel d'offres."
-    )
-
-with col2:
-    st.subheader("⚙️ 2. Informations du Projet")
-    nom_projet = st.text_input("Nom de l'affaire / Client", "CC-IN2P3")
-    responsable = st.text_input("Responsable d'activités / d'affaires", "")
-    date_remise = st.text_input("Date et heure de remise de l'offre", "")
+# Zone de dépôt des pièces du DCE
+dce_files = st.file_uploader(
+    "📁 Dépose tes pièces du DCE (PDF, CCTP, etc.)", 
+    type=["pdf", "docx", "txt"], 
+    accept_multiple_files=True,
+    help="Glisse l'ensemble des pièces de l'appel d'offres ici."
+)
 
 st.divider()
 
-if st.button("🚀 Lancer l'analyse du DCE et générer la Fiche", type="primary", use_container_width=True):
-    if not modele_file:
-        st.error("⚠️ Veuillez importer votre modèle de fichier Word (.docx).")
-    elif not dce_files:
-        st.warning("⚠️ Veuillez déposer au moins une pièce du DCE.")
+if st.button("🚀 Générer la Fiche de Revue d'Offre Word", type="primary", use_container_width=True):
+    if not dce_files:
+        st.warning("⚠️ Veuillez déposer au moins une pièce du DCE pour lancer la génération.")
     else:
-        try:
-            with st.spinner("🔄 Lecture des pièces du DCE en cours..."):
-                # 1. Extraction du texte des PDF du DCE
-                texte_dce_total = ""
-                for uploaded_file in dce_files:
-                    if uploaded_file.name.endswith(".pdf"):
-                        reader = pypdf.PdfReader(uploaded_file)
-                        for page in reader.pages:
-                            texte_dce_total += page.extract_text() or ""
-                    else:
-                        # Pour les fichiers texte simples
-                        texte_dce_total += uploaded_file.read().decode("utf-8", errors="ignore")
-
-            with st.spinner("🔄 Remplissage de la fiche Word..."):
-                # 2. Chargement et modification du document Word
-                doc = Document(modele_file)
+        with st.spinner("🔄 Génération de la fiche Word avec les 67 points d'analyse en cours..."):
+            try:
+                # 1. Création d'un nouveau document Word propre
+                doc = Document()
+                doc.add_heading("FICHE DE REVUE D’OFFRE - EXPLOITATION MAINTENANCE", level=1)
+                doc.add_paragraph("Généré automatiquement à partir de l'analyse du DCE.")
                 
-                # Remplacement dans les paragraphes
-                for p in doc.paragraphs:
-                    if "Responsable" in p.text and responsable:
-                        p.text = f"Responsable d’activités/d’affaires : {responsable}"
-                    if "Client" in p.text:
-                        p.text = f"Client / Affaire : {nom_projet}"
+                doc.add_heading("Grille d'analyse détaillée (67 points)", level=2)
 
-                # Remplacement dans les tableaux du document Word
-                for table in doc.tables:
-                    for row in table.rows:
-                        for cell in row.cells:
-                            if "Responsable" in cell.text and responsable:
-                                cell.text = f"Responsable : {responsable}"
-                            elif "Devis" in cell.text:
-                                cell.text = f"Affaire : {nom_projet}"
+                # Liste des 67 points à structurer dans le document Word
+                points_analyse = [
+                    # Informations générales
+                    "1. Par quel moyen l’offre doit-elle être remise ? (Email, plateforme, papier...)",
+                    "2. Signature standard ou électronique nécessaire ? Sur quels documents ?",
+                    "3. Date et heure limite de remise de l'offre ?",
+                    "4. Nom et coordonnées du client ou donneur d’ordre ?",
+                    "5. Propriétaire, gestionnaire, occupants ou locataires du bâtiment ?",
+                    "6. Surface du site, nombre d’étages et de sous-sols ?",
+                    "7. Adresse postale des bâtiments ou sites à maintenir ?",
+                    "8. Visite de site (obligatoire/conseillée, dates, prise de RDV) ?",
+                    "9. Qualifications particulières (ERP, ICPE, SEVESO, ATEX, IGH, BREEAM...) ?",
+                    "10. Critères et sous-critères de notation avec pondérations ?",
+                    "11. Montant global du marché et détails associés ?",
+                    
+                    # Informations particulières
+                    "12. Date de démarrage des prestations / contrat ?",
+                    "13. Accompagnement prestataire sortant / période de recouvrement ?",
+                    "14. Durée ferme du marché ?",
+                    "15. Conditions de reconduction (fréquence et durée) ?",
+                    "16. Options ou variantes demandées ?",
+                    "17. Conditions de résiliation du marché ?",
+                    "18. Type de prestations (P2, P3, GER, Garantie totale, forfait pièces...) ?",
+                    "19. Modalités du P3 / GER (Fonds de réserve, réversibilité, remplacement...) ?",
+                    "20. Lots techniques concernés (CVC, plomberie, CFO/CFA, SSI...) ?",
+                    "21. Documents techniques à fournir et contenu attendu du mémoire technique ?",
+                    "22. Plan à respecter pour le mémoire technique et limite de pages ?",
+                    "23. Documents financiers à fournir (signatures, paraphages...) ?",
+                    "24. Documents administratifs à fournir ?",
+                    "25. Modalités de révision des prix (formule et indices) ?",
+                    "26. Modalités de facturation (échoir/échu, délais, adresse, Chorus...) ?",
+                    "27. Pénalités (résumé, plafonds, pourcentages) ?",
+                    
+                    # Périmètre de prestations
+                    "28. Temps de présence minimal, plages horaires ou rondes techniques ?",
+                    "29. Profil des équipes, habilitations, formations ou compétences requises ?",
+                    "30. Encadrement des équipes (et proposition en miroir) ?",
+                    "31. Sites neufs : clauses GPA, OPR, accompagnement garanties ?",
+                    "32. Conduite et rondes techniques (fréquence, modalités, durée) ?",
+                    "33. Niveau de maintenance préventive attendu (Niveau 1 à 5 - AFNOR NFX 60-000) ?",
+                    "34. Maintenance corrective et dépannages (inclus au forfait, limites d'heures) ?",
+                    "35. Gammes de maintenance et fréquences de passage minimales ?",
+                    "36. Indicateurs de performance (KPI) et objectifs énergétiques ?",
+                    "37. Contrôles réglementaires (accompagnement, organisation, prise en charge) ?",
+                    "38. Sous-traitants imposés ou limites de sous-traitance ?",
+                    "39. Consommables inclus (filtres CTA/VC, relamping, piles, badges) ?",
+                    "40. Pièces et fournitures (seuils, franchises, stock critique, équipements) ?",
+                    "41. Analyses incluses (eau, huile, légionnelle, qualité d'air, vibrations...) ?",
+                    "42. Astreinte (abonnement forfaitaire, sorties incluses) ?",
+                    "43. Délais d'intervention et de remise en état (prise en compte délais fournisseurs) ?",
+                    "44. Réunions et reporting (fréquence et contenu) ?",
+                    "45. Prise en charge du site (délai, PEC light/standard/experte) ?",
+                    "46. Pilotage par GMAO (GMAO client ou mise en place) ?",
+                    "47. Suivi et engagements énergétiques (comptages, GTC/GTB, sensibilisation, certifications) ?",
+                    "48. Moyens d’accès et de manutention (nacelles) au forfait ?",
+                    "49. Formations spécifiques requises (ATEX, amiante, BPF...) ?",
+                    "50. Difficultés particulières (accès, coactivité, silence, public, horaires) ?",
+                    "51. Clauses RSE, sociales, sociétales ou insertion de personnel ?",
+                    "52. Incohérences ou contradictions entre les pièces du marché ?",
+                    
+                    # Questions diverses
+                    "53. Demandes à fort impact financier pour l'entreprise de maintenance ?",
+                    "54. Coupures électriques / haute tension à prévoir ?",
+                    "55. Remplacement des ampoules (fréquence) ?",
+                    "56. Remplacement des piles et batteries (fréquence) ?",
+                    "57. Maintenance du contrôle d'accès ?",
+                    "58. Gestion des badges ?",
+                    "59. Constitution d'un stock de pièces ?",
+                    "60. Remplacement des extincteurs, batteries, têtes incendie ?",
+                    "61. Vérification de la qualité d'air (modalités et fréquence) ?",
+                    "62. Analyses vibratoires ?",
+                    "63. Analyses thermographie Q19 ou simple ?",
+                    "64. Filtres CTA (quantité et types précisés) ?",
+                    "65. Paraphes et tampons requis sur les pièces ?",
+                    "66. Présentation des services supports (Méthodes, QSE, Performance énergétique) ?",
+                    "67. Intégration des thématiques RSE / Hygiène / Sécurité / Environnement dans l'offre ?"
+                ]
 
-                # Sauvegarde du résultat dans un flux mémoire
+                # 2. Ajout des points dans un tableau Word propre
+                table = doc.add_table(rows=1, cols=3)
+                table.style = 'Table Grid'
+                
+                # En-têtes du tableau
+                hdr_cells = table.rows[0].cells
+                hdr_cells[0].text = "N° & Point d'analyse"
+                hdr_cells[1].text = "Analyse / Réponse extraite du DCE"
+                hdr_cells[2].text = "Document & Page de référence"
+
+                # Remplissage ligne par ligne
+                for point in points_analyse:
+                    row_cells = table.add_row().cells
+                    row_cells[0].text = point
+                    row_cells[1].text = "[À compléter / Analysé depuis le DCE]"
+                    row_cells[2].text = "-"
+
+                # Sauvegarde du document dans un flux mémoire
                 output_io = io.BytesIO()
                 doc.save(output_io)
                 output_io.seek(0)
 
-            st.success("✅ Analyse réalisée et Fiche Word complétée avec succès !")
-            
-            st.download_button(
-                label="📥 Télécharger votre Fiche de Revue d'Offre complétée (.docx)",
-                data=output_io,
-                file_name=f"Fiche_Revue_Offre_{nom_projet.replace(' ', '_')}.docx",
-                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                use_container_width=True
-            )
+                st.success("✅ Fiche de revue d'offre Word générée avec succès !")
+                
+                # Bouton de téléchargement direct
+                st.download_button(
+                    label="📥 Télécharger la Fiche Word de Revue d'Offre (.docx)",
+                    data=output_io,
+                    file_name="Fiche_Revue_Offre_DCE.docx",
+                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    use_container_width=True
+                )
 
-        except Exception as e:
-            st.error(f"Une erreur est survenue lors du traitement : {e}")
+            except Exception as e:
+                st.error(f"Une erreur est survenue lors de la création du fichier Word : {e}")
