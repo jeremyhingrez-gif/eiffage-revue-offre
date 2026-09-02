@@ -63,8 +63,8 @@ if st.button("🚀 Lancer l'analyse du DCE et générer la Fiche Word", type="pr
                     "de revue d'offre, en indiquant pour chaque point l'information trouvée ainsi que le document et la page de référence."
                 )
 
-                # Utilisation du modèle standard de production
-                model = genai.GenerativeModel('gemini-1.5-flash')
+                # Utilisation du modèle gemini-2.5-flash demandé
+                model = genai.GenerativeModel('gemini-2.5-flash')
                 
                 response = model.generate_content([
                     prompt_systeme,
