@@ -11,8 +11,8 @@ st.set_page_config(
     layout="wide",
 )
 
-st.title("🏗️ Assistant IA (Gemini) - Analyse de DCE & Revue d'Offre")
-st.markdown("Dépose tes pièces de DCE. Gemini analyse les documents point par point et te génère un tableau Word structuré.")
+st.title("🏗️ Assistant IA (Gemini 3.5) - Analyse de DCE & Revue d'Offre")
+st.markdown("Dépose tes pièces de DCE. Gemini 3.5 analyse les documents point par point et te génère un tableau Word structuré.")
 
 st.divider()
 
@@ -60,8 +60,8 @@ if st.button("🚀 Lancer l'analyse du DCE et générer le tableau Word", type="
                 current_progress = int(10 + ((index + 1) / total_files) * 20)
                 progress_bar.progress(current_progress)
 
-            # ÉTAPE 2 : Analyse par Gemini avec gestion d'un délai étendu (70%)
-            status_text.text("🤖 Étape 2/3 : Analyse approfondie point par point par Gemini (cela peut prendre quelques secondes)...")
+            # ÉTAPE 2 : Analyse par Gemini 3.5 (70%)
+            status_text.text("🤖 Étape 2/3 : Analyse approfondie point par point par Gemini 3.5...")
             progress_bar.progress(40)
 
             genai.configure(api_key=api_key)
@@ -73,17 +73,17 @@ if st.button("🚀 Lancer l'analyse du DCE et générer le tableau Word", type="
                 "suivi de l'analyse détaillée, des informations trouvées, et de la page de référence du document."
             )
 
-            model = genai.GenerativeModel('gemini-2.5-flash')
+            # Utilisation explicite du modèle gemini-3.5-flash
+            model = genai.GenerativeModel('gemini-3.5-flash')
             
             progress_bar.progress(60)
             
-            # Appel à l'API avec un délai de tolérance étendu (request_options avec timeout)
             response = model.generate_content(
                 [
                     prompt_systeme,
                     f"Voici le contenu complet du DCE :\n{texte_dce_total}"
                 ],
-                request_options={"timeout": 120}  # Tolérance poussée à 120 secondes (2 minutes)
+                request_options={"timeout": 120}  # Tolérance de 120 secondes
             )
             
             analyse_resultat = response.text
@@ -130,7 +130,7 @@ if st.button("🚀 Lancer l'analyse du DCE et générer le tableau Word", type="
             st.download_button(
                 label="📥 Télécharger la Fiche Word structurée (.docx)",
                 data=output_io,
-                file_name="Fiche_Revue_Offre_Tableau.docx",
+                file_name="Fiche_Revue_Offre_Gemini_3.5.docx",
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                 use_container_width=True
             )
