@@ -11,8 +11,8 @@ st.set_page_config(
     layout="wide",
 )
 
-st.title("🏗️ Assistant IA (Gemini 3.5) - Analyse de DCE & Revue d'Offre")
-st.markdown("Dépose tes pièces de DCE. Gemini 3.5 analyse les documents, traite les 67 points de contrôle et te génère le fichier Word entièrement complété.")
+st.title("🏗️ Assistant IA (Gemini) - Analyse de DCE & Revue d'Offre")
+st.markdown("Dépose tes pièces de DCE. Gemini analyse les documents point par point et te génère un tableau Word structuré.")
 
 st.divider()
 
@@ -29,78 +29,111 @@ dce_files = st.file_uploader(
 
 st.divider()
 
-if st.button("🚀 Lancer l'analyse du DCE et générer la Fiche Word", type="primary", use_container_width=True):
+if st.button("🚀 Lancer l'analyse du DCE et générer le tableau Word", type="primary", use_container_width=True):
     if not dce_files:
         st.warning("⚠️ Veuillez déposer au moins une pièce du DCE.")
     elif not api_key:
         st.error("⚠️ Veuillez renseigner votre clé API Gemini dans la barre latérale.")
     else:
-        with st.spinner("🔄 Étape 1/3 : Extraction du texte des pièces du DCE..."):
-            try:
-                texte_dce_total = ""
-                for uploaded_file in dce_files:
-                    if uploaded_file.name.endswith(".pdf"):
-                        reader = pypdf.PdfReader(uploaded_file)
-                        for i, page in enumerate(reader.pages):
-                            texte_dce_total += f"\n--- Document: {uploaded_file.name} (Page {i+1}) ---\n"
-                            texte_dce_total += page.extract_text() or ""
-                    else:
-                        texte_dce_total += f"\n--- Document: {uploaded_file.name} ---\n"
-                        texte_dce_total += uploaded_file.read().decode("utf-8", errors="ignore")
+        # Création de la barre de progression visuelle
+        progress_bar = st.progress(0)
+        status_text = st.empty()
 
-            except Exception as e:
-                st.error(f"Erreur lors de la lecture des fichiers : {e}")
-                st.stop()
-
-        with st.spinner("🤖 Étape 2/3 : Analyse approfondie par Gemini 3.5 des 67 points de contrôle..."):
-            try:
-                # Configuration de l'API avec la clé utilisateur
-                genai.configure(api_key=api_key)
+        try:
+            # ÉTAPE 1 : Extraction du texte (30%)
+            status_text.text("🔄 Étape 1/3 : Extraction du texte des pièces du DCE...")
+            progress_bar.progress(10)
+            
+            texte_dce_total = ""
+            total_files = len(dce_files)
+            
+            for index, uploaded_file in enumerate(dce_files):
+                if uploaded_file.name.endswith(".pdf"):
+                    reader = pypdf.PdfReader(uploaded_file)
+                    for i, page in enumerate(reader.pages):
+                        texte_dce_total += f"\n--- Document: {uploaded_file.name} (Page {i+1}) ---\n"
+                        texte_dce_total += page.extract_text() or ""
+                else:
+                    texte_dce_total += f"\n--- Document: {uploaded_file.name} ---\n"
+                    texte_dce_total += uploaded_file.read().decode("utf-8", errors="ignore")
                 
-                prompt_systeme = (
-                    "Tu es un expert en réponse aux appels d'offres dans le domaine de la maintenance et de la performance énergétique "
-                    "pour Eiffage Énergie Systèmes. Analyse les documents du DCE fournis et réponds précisément aux 67 points de la grille "
-                    "de revue d'offre, en indiquant pour chaque point l'information trouvée ainsi que le document et la page de référence."
-                )
+                current_progress = int(10 + ((index + 1) / total_files) * 20)
+                progress_bar.progress(current_progress)
 
-                # Utilisation du modèle gemini-3.5-flash demandé
-                model = genai.GenerativeModel('gemini-3.5-flash')
-                
-                response = model.generate_content([
+            # ÉTAPE 2 : Analyse par Gemini avec gestion d'un délai étendu (70%)
+            status_text.text("🤖 Étape 2/3 : Analyse approfondie point par point par Gemini (cela peut prendre quelques secondes)...")
+            progress_bar.progress(40)
+
+            genai.configure(api_key=api_key)
+            
+            prompt_systeme = (
+                "Tu es un expert en réponse aux appels d'offres de maintenance et performance énergétique pour Eiffage Énergie Systèmes. "
+                "Analyse le DCE fourni et réponds aux 67 points de la grille de revue d'offre. "
+                "Pour chaque point, commence ta ligne exactement par le numéro au format 'POINT X :' (ex: 'POINT 1 :', 'POINT 2 :', etc.) "
+                "suivi de l'analyse détaillée, des informations trouvées, et de la page de référence du document."
+            )
+
+            model = genai.GenerativeModel('gemini-2.5-flash')
+            
+            progress_bar.progress(60)
+            
+            # Appel à l'API avec un délai de tolérance étendu (request_options avec timeout)
+            response = model.generate_content(
+                [
                     prompt_systeme,
                     f"Voici le contenu complet du DCE :\n{texte_dce_total}"
-                ])
-                
-                analyse_resultat = response.text
+                ],
+                request_options={"timeout": 120}  # Tolérance poussée à 120 secondes (2 minutes)
+            )
+            
+            analyse_resultat = response.text
+            progress_bar.progress(85)
 
-            except Exception as e:
-                st.error(f"Erreur lors de l'appel à l'API Gemini : {e}")
-                st.stop()
+            # ÉTAPE 3 : Création du document Word (100%)
+            status_text.text("📝 Étape 3/3 : Mise en forme et création du tableau Word...")
+            
+            doc = Document()
+            doc.add_heading("FICHE DE REVUE D’OFFRE - EXPLOITATION MAINTENANCE", level=1)
+            doc.add_paragraph("Tableau d'analyse automatisée des pièces du DCE - Eiffage Énergie Systèmes.")
+            
+            doc.add_heading("Grille d'analyse détaillée", level=2)
 
-        with st.spinner("📝 Étape 3/3 : Création et remplissage du document Word..."):
-            try:
-                # Création du document Word
-                doc = Document()
-                doc.add_heading("FICHE DE REVUE D’OFFRE - EXPLOITATION MAINTENANCE", level=1)
-                doc.add_paragraph("Analyse automatisée des pièces du DCE par Gemini 3.5 - Eiffage Énergie Systèmes.")
-                
-                doc.add_heading("Synthèse de l'analyse des 67 points", level=2)
-                doc.add_paragraph(analyse_resultat)
+            table = doc.add_table(rows=1, cols=2)
+            table.style = 'Table Grid'
+            
+            hdr_cells = table.rows[0].cells
+            hdr_cells[0].text = "Numéro du Point"
+            hdr_cells[1].text = "Analyse et Réponse extraite du DCE"
 
-                # Sauvegarde dans un flux mémoire
-                output_io = io.BytesIO()
-                doc.save(output_io)
-                output_io.seek(0)
+            lignes = analyse_resultat.split("\n")
+            for ligne in lignes:
+                if "POINT" in ligne.upper() and ":" in ligne:
+                    parties = ligne.split(":", 1)
+                    row_cells = table.add_row().cells
+                    row_cells[0].text = parties[0].strip()
+                    row_cells[1].text = parties[1].strip() if len(parties) > 1 else ""
 
-                st.success("✅ Analyse terminée et Fiche Word complétée avec succès !")
-                
-                st.download_button(
-                    label="📥 Télécharger la Fiche de Revue d'Offre Word complétée (.docx)",
-                    data=output_io,
-                    file_name="Fiche_Revue_Offre_Gemini_3.5.docx",
-                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                    use_container_width=True
-                )
+            if len(table.rows) == 1:
+                row_cells = table.add_row().cells
+                row_cells[0].text = "Synthèse globale"
+                row_cells[1].text = analyse_resultat
 
-            except Exception as e:
-                st.error(f"Erreur lors de la génération du fichier Word : {e}")
+            output_io = io.BytesIO()
+            doc.save(output_io)
+            output_io.seek(0)
+
+            progress_bar.progress(100)
+            status_text.text("✅ Analyse terminée avec succès !")
+
+            st.success("✅ Fiche de revue d'offre structurée en tableau générée avec succès !")
+            
+            st.download_button(
+                label="📥 Télécharger la Fiche Word structurée (.docx)",
+                data=output_io,
+                file_name="Fiche_Revue_Offre_Tableau.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                use_container_width=True
+            )
+
+        except Exception as e:
+            st.error(f"Une erreur est survenue lors du traitement : {e}")
