@@ -35,7 +35,6 @@ if st.button("🚀 Lancer l'analyse du DCE et générer le tableau Word", type="
     elif not api_key:
         st.error("⚠️ Veuillez renseigner votre clé API Gemini dans la barre latérale.")
     else:
-        # Création de la barre de progression visuelle
         progress_bar = st.progress(0)
         status_text = st.empty()
 
@@ -60,30 +59,34 @@ if st.button("🚀 Lancer l'analyse du DCE et générer le tableau Word", type="
                 current_progress = int(10 + ((index + 1) / total_files) * 20)
                 progress_bar.progress(current_progress)
 
-            # ÉTAPE 2 : Analyse par Gemini 3.5 (70%)
-            status_text.text("🤖 Étape 2/3 : Analyse approfondie point par point par Gemini 3.5...")
+            # Sécurité anti-saturation : on garde les 150 000 premiers caractères si le DCE est titanesque
+            if len(texte_dce_total) > 150000:
+                texte_dce_total = texte_dce_total[:150000] + "\n[... Document tronqué pour optimiser l'analyse ...]"
+
+            # ÉTAPE 2 : Analyse par Gemini 3.5 avec un timeout élargi à 300 secondes (70%)
+            status_text.text("🤖 Étape 2/3 : Analyse approfondie point par point par Gemini 3.5 (Patientez quelques instants)...")
             progress_bar.progress(40)
 
             genai.configure(api_key=api_key)
             
             prompt_systeme = (
                 "Tu es un expert en réponse aux appels d'offres de maintenance et performance énergétique pour Eiffage Énergie Systèmes. "
-                "Analyse le DCE fourni et réponds aux 67 points de la grille de revue d'offre. "
+                "Analyse le DCE fourni et réponds précisément aux 67 points de la grille de revue d'offre. "
                 "Pour chaque point, commence ta ligne exactement par le numéro au format 'POINT X :' (ex: 'POINT 1 :', 'POINT 2 :', etc.) "
                 "suivi de l'analyse détaillée, des informations trouvées, et de la page de référence du document."
             )
 
-            # Utilisation explicite du modèle gemini-3.5-flash
             model = genai.GenerativeModel('gemini-3.5-flash')
             
             progress_bar.progress(60)
             
+            # Appel à l'API avec un délai de tolérance poussé à 300 secondes (5 minutes)
             response = model.generate_content(
                 [
                     prompt_systeme,
                     f"Voici le contenu complet du DCE :\n{texte_dce_total}"
                 ],
-                request_options={"timeout": 120}  # Tolérance de 120 secondes
+                request_options={"timeout": 300}
             )
             
             analyse_resultat = response.text
